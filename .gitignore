@@ -1,6 +1,18 @@
 data/
-data/*
-data/*/*
+data/**
 
 webcrawler/data/
-webcrawler/data/*
+webcrawler/data/**
+
+
+# Byte-compiled / optimized / DLL files
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+
+*.log
+*.out
