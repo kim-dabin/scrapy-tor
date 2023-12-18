@@ -1,9 +1,11 @@
 data/
 **/data/
 
-data/**/
-**/data/**/
+data/**/**
+**/data/**/**
 
+*.bson
+*.wt
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
