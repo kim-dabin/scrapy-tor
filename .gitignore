@@ -1,2 +1,3 @@
-./data/*
-./webcrawler/data/*
+data/*
+data/*/*
+webcrawler/data/*
