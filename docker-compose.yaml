@@ -1,0 +1,136 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./data/db:/data/db
+    ports:
+        - 27017:27017
+    networks:
+      - spider_mongodb_network
+      - default_networks
+  crawler:
+    image: scrapy-tor:0.0.6
+    environment:
+      - MAX_PAGES=10
+    build:
+      context: ./webcrawler
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    ports:
+      - 8118:8118
+    volumes:
+      - ./webcrawler:/opt
+    depends_on:
+      - mongodb
+    networks:
+      - spider_mongodb_network
+      - default_networks
+    command: sh /usr/bin/entrypoint.sh
+  postgresql:
+    image: 'bitnami/postgresql:latest'
+    environment:
+      - POSTGRESQL_DATABASE=bitnami_airflow
+      - POSTGRESQL_USERNAME=bn_airflow
+      - POSTGRESQL_PASSWORD=bitnami1
+    networks:
+      - default_networks
+    volumes:
+      - ./data/postgresql-persistence:/bitnami/postgresql
+  redis:
+    image: 'bitnami/redis:latest'
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      - default_networks
+    volumes:
+      - ./data/redis-persistence:/bitnami
+  airflow-worker:
+    image: bitnami/airflow-worker:latest
+    networks:
+      - default_networks
+    environment:
+      - AIRFLOW_FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW_SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
+      - AIRFLOW_EXECUTOR=CeleryExecutor
+      - AIRFLOW_DATABASE_NAME=bitnami_airflow
+      - AIRFLOW_DATABASE_USERNAME=bn_airflow
+      - AIRFLOW_DATABASE_PASSWORD=bitnami1
+      - AIRFLOW_LOAD_EXAMPLES=yes
+  airflow-scheduler:
+    image: bitnami/airflow-scheduler:latest
+    networks:
+      - default_networks
+    environment:
+      - AIRFLOW_FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW_SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
+      - AIRFLOW_EXECUTOR=CeleryExecutor
+      - AIRFLOW_DATABASE_NAME=bitnami_airflow
+      - AIRFLOW_DATABASE_USERNAME=bn_airflow
+      - AIRFLOW_DATABASE_PASSWORD=bitnami1
+      - AIRFLOW_LOAD_EXAMPLES=yes
+  airflow:
+    image: bitnami/airflow:latest
+    environment:
+      - AIRFLOW_FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW_SECRET_KEY=a25mQ1FHTUh3MnFRSk5KMEIyVVU2YmN0VGRyYTVXY08=
+      - AIRFLOW_EXECUTOR=CeleryExecutor
+      - AIRFLOW_DATABASE_NAME=bitnami_airflow
+      - AIRFLOW_DATABASE_USERNAME=bn_airflow
+      - AIRFLOW_DATABASE_PASSWORD=bitnami1
+      - AIRFLOW_PASSWORD=bitnami123
+      - AIRFLOW_USERNAME=user
+      - AIRFLOW_EMAIL=user@example.com
+    networks:
+      - default_networks
+    ports:
+      - '8282:8282'
+    volumes:
+        - ./dags:/usr/local/airflow/dags # DAGs folder
+        - ./spark/app:/usr/local/spark/app # Spark Scripts (same path in airflow and spark)
+        - ./spark/resources:/usr/local/spark/resources # Spark Resources (same path in airflow and spark)
+  # Spark with N workers
+  spark-master:
+      image: bitnami/spark:3.5.0
+      hostname: spark
+      networks:
+          - default_networks
+      environment:
+          - SPARK_MODE=master
+          - SPARK_RPC_AUTHENTICATION_ENABLED=no
+          - SPARK_RPC_ENCRYPTION_ENABLED=no
+          - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+          - SPARK_SSL_ENABLED=no
+      volumes:
+          - ./spark/app:/usr/local/spark/app # Scripts (same path in airflow and spark)
+          - ./spark/resources:/usr/local/spark/resources # Resources (same path in airflow and spark)
+      ports:
+          - "8081:8081"
+          - "7077:7077"
+  spark-worker:
+      image: bitnami/spark:3.5.0
+      #user: root
+      networks:
+          - default_networks
+      environment:
+          - SPARK_MODE=worker
+          - SPARK_MASTER_URL=spark://spark:7077
+          - SPARK_WORKER_MEMORY=1G
+          - SPARK_WORKER_CORES=1
+          - SPARK_RPC_AUTHENTICATION_ENABLED=no
+          - SPARK_RPC_ENCRYPTION_ENABLED=no
+          - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+          - SPARK_SSL_ENABLED=no
+      volumes:
+          - ./spark/app:/usr/local/spark/app # Scripts (same path in airflow and spark)
+          - ./spark/resources:/usr/local/spark/resources # Resources (same path in airflow and spark)
+networks:
+  spider_mongodb_network:
+    driver: bridge
+  default_networks:
